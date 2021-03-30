@@ -15,144 +15,89 @@ import numpy as np
 import cv2
 
 
-# Keras
-from keras.applications.imagenet_utils import preprocess_input, decode_predictions
-from keras.models import load_model
-from keras.preprocessing import image
-from keras.preprocessing.image import ImageDataGenerator
-import tensorflow as tf
+import predict
 
 # Flask utils
 from flask import Flask, redirect, url_for, request, render_template
 from werkzeug.utils import secure_filename
 from gevent.pywsgi import WSGIServer
-from flask_bootstrap import Bootstrap
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import SubmitField
+# from flask_bootstrap import Bootstrap
+# from flask_wtf import FlaskForm
+# from flask_wtf.file import FileField, FileRequired, FileAllowed
+# from wtforms import SubmitField
+
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+
 
 # Define a flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
-bootstrap = Bootstrap(app)
+client = MongoClient('localhost', 27017)
+db = client['SehatIntel']
+datas_collection = db['datas']
+users_collection = db['users']
+# bootstrap = Bootstrap(app)
 
 # Load your trained model
-alex = tf.keras.models.load_model('alexnet_model.hdf5') 
-
-labels = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 
-            'Edema', 'Effusion', 'Emphysema', 
-            'Fibrosis', 'Hernia', 'Infiltration', 
-            'Mass', 'No Finding', 'Nodule', 
-            'Pleural_Thickening', 'Pneumonia', 'Pneumothorax']
-
-print('Model loaded. Check http://127.0.0.1:5000/')
-
-class UploadForm(FlaskForm):
-    upload = FileField('Select an image:', validators=[
-        FileRequired(),
-        FileAllowed(['jpg', 'png', 'jpeg', 'JPEG', 'PNG', 'JPG'], 'Images only!')
-    ])
-    submit = SubmitField('Classify')
-
-def get_prediction(img_path):
-
-    pred_label = []
-    img = cv2.imread(img_path)
-    img_resized = cv2.resize(img, (224, 224))
-    img_preprocessed = preprocess_input(img_resized)
-    img_reshaped = img_preprocessed.reshape((1, 224, 224, 3))
-    prediction = alex.predict(img_reshaped)
-    pred_class = prediction.argmax(axis=-1)
-    pred_label.append(labels[pred_class[0]])
-    print('PREDICTION LABEL:',pred_label)
 
 
-    """
-    print('IMAGE PATH: ', img_path)
-    predict_datagen = ImageDataGenerator(rescale=1. / 255)
-    predict = predict_datagen.flow_from_directory(
-        'static/', 
-        target_size=(224,224), 
-        batch_size = 1,
-        class_mode='categorical')
-    pred = alex.predict_generator(predict)
-    prediction = os.listdir(labels)[np.argmax(pred)]
-    """
-    return pred_label
+# print('Model loaded. Check http://127.0.0.1:5000/')
+
+# class UploadForm(FlaskForm):
+#     upload = FileField('Select an image:', validators=[
+#         FileRequired(),
+#         FileAllowed(['jpg', 'png', 'jpeg', 'JPEG', 'PNG', 'JPG'], 'Images only!')
+#     ])
+#     submit = SubmitField('Classify')
 
 
-@app.route('/', methods=['GET', 'POST'])
-def home():
-    form = UploadForm()
-    if form.validate_on_submit():
-        f = form.upload.data
-        filename = secure_filename(f.filename)
-        file_url = os.path.join('static/', filename)
-        f.save(file_url)
-        form = None
-        prediction = get_prediction(file_url)
+
+
+# @app.route('/', methods=['GET', 'POST'])
+# def home():
+#     form = UploadForm()
+#     if form.validate_on_submit():
+#         f = form.upload.data
+#         filename = secure_filename(f.filename)
+#         file_url = os.path.join('static/', filename)
+#         f.save(file_url)
+#         form = None
+#         prediction = get_prediction(file_url)
+#     else:
+#         file_url = None
+#         prediction = None
+#     return render_template("index.html", form=form, file_url=file_url, prediction=prediction)
+
+
+
+@app.route('/image', methods=['POST', 'GET'])
+def pymongo_test():
+    if request.method == 'POST':
+        request_data = request.get_json()
+        user_data = datas_collection.find_one({'_id': ObjectId(request_data['id'])})
+        if( user_data):
+            prediction = predict.main(user_data['labReportFileUrl'])
+            filter = {
+                '_id':  ObjectId(request_data['id'])
+            }
+            new_values = {
+                "$set": {
+                    'labReportDiagnosistics': str(prediction)
+                }
+            }
+            datas_collection.update_one(filter, new_values)
+            return "data updated"
+        else:
+            return 'Try again with different object id'
     else:
-        file_url = None
-        prediction = None
-    return render_template("index.html", form=form, file_url=file_url, prediction=prediction)
+        data = []
+        cursor  = datas_collection.find()
+        for doc in cursor:
+            doc['_id'] = str(doc['_id'])
+            data.append(doc)
+        return jsonify(data)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-
-
-
-
-"""
-
-def model_predict(img_path, model):
-    img = image.load_img(img_path, target_size=(224, 224))
-
-    # Preprocessing the image
-    x = image.img_to_array(img)
-    # x = np.true_divide(x, 255)
-    x = np.expand_dims(x, axis=0)
-
-    # Be careful how your trained model deals with the input
-    # otherwise, it won't make correct prediction!
-    x = preprocess_input(x, mode='caffe')
-
-    preds = model.predict(x)
-    return preds
-
-
-@app.route('/', methods=['GET'])
-def index():
-    # Main page
-    return render_template('index.html')
-
-
-@app.route('/predict', methods=['GET', 'POST'])
-def upload():
-    if request.method == 'POST':
-        # Get the file from post request
-        f = request.files['file']
-
-        # Save the file to ./uploads
-        basepath = os.path.dirname(__file__)
-        file_path = os.path.join(
-            basepath, '', secure_filename(f.filename))
-        f.save(file_path)
-
-        # Make prediction
-        preds = model_predict(file_path, model)
-
-        # Process your result for human
-        # pred_class = preds.argmax(axis=-1)            # Simple argmax
-        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
-        result = str(pred_class[0][0][1])               # Convert to string
-        return result
-    return None
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-"""
