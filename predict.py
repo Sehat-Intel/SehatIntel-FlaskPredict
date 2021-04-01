@@ -8,7 +8,7 @@ import cv2
 from skimage import io
 
 
-alex = tf.keras.models.load_model('alexnet_model.hdf5') 
+alex = tf.keras.models.load_model('model_resnet.hdf5') 
 
 labels = ['Atelectasis', 'Cardiomegaly', 'Consolidation', 
             'Edema', 'Effusion', 'Emphysema', 
