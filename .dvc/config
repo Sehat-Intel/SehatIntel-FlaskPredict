@@ -1,0 +1,4 @@
+[core]
+    remote = modelremote
+['remote "modelremote"']
+    url = gdrive://1wWdeX8rUykHSCnIoUZp1UjUWz9CrHPUP
