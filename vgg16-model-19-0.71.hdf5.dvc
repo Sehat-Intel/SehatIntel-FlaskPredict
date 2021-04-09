@@ -1,0 +1,4 @@
+outs:
+- md5: a41869ce1dd5d58c5c4fda34639d9a40
+  size: 328937960
+  path: vgg16-model-19-0.71.hdf5

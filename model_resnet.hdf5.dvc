@@ -1,0 +1,4 @@
+outs:
+- md5: bbc19e0b40576204e847a660149b0398
+  size: 193452248
+  path: model_resnet.hdf5
