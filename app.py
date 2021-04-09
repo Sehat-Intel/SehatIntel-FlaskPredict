@@ -15,9 +15,12 @@ from bson.objectid import ObjectId
 import predict
 
 # Flask utils
-from flask import Flask, redirect, url_for, request, render_template
+from flask import Flask, redirect, url_for, request, render_template, jsonify
+from flask import jsonify
 from werkzeug.utils import secure_filename
 from gevent.pywsgi import WSGIServer
+from flask_cors import CORS
+
 # from flask_bootstrap import Bootstrap
 # from flask_wtf import FlaskForm
 # from flask_wtf.file import FileField, FileRequired, FileAllowed
@@ -27,6 +30,14 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 # Define a flask app
 app = Flask(__name__)
+CORS(app)
+cors = CORS(app, resources = {
+    r"/*": {
+        "origin": "*"
+    }
+})
+
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
 client = MongoClient('localhost', 27017)
 db = client['SehatIntel']
@@ -38,6 +49,7 @@ users_collection = db['users']
 def pymongo_test():
     if request.method == 'POST':
         request_data = request.get_json()
+        print(request_data)
         user_data = datas_collection.find_one({'_id': ObjectId(request_data['id'])})
         if( user_data):
             prediction = predict.main(user_data['labReportFileUrl'])
@@ -50,7 +62,7 @@ def pymongo_test():
                 }
             }
             datas_collection.update_one(filter, new_values)
-            return "data updated"
+            return jsonify({"message": "model results stored"})
         else:
             return 'Try again with different object id'
     else:
