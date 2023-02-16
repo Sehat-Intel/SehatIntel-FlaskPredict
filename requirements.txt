@@ -7,4 +7,4 @@ Keras==2.4.3
 Flask_Bootstrap==3.3.7.1
 tensorflow==2.4.0
 opencv_python==4.5.1.48
-Werkzeug==1.0.1
+Werkzeug==2.2.3
